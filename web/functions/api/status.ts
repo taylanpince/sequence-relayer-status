@@ -22,7 +22,8 @@ const COINGECKO_ID_BY_SYMBOL: Record<string, string | undefined> = {
 async function fetchUsdPrices(ids: string[], apiKey?: string): Promise<Record<string, number>> {
   if (ids.length === 0) return {}
 
-  const url = new URL('https://api.coingecko.com/api/v3/simple/price')
+  const base = apiKey ? 'https://pro-api.coingecko.com/api/v3/simple/price' : 'https://api.coingecko.com/api/v3/simple/price'
+  const url = new URL(base)
   url.searchParams.set('ids', ids.join(','))
   url.searchParams.set('vs_currencies', 'usd')
 
