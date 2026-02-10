@@ -88,7 +88,9 @@ export const onRequest: PagesFunction = async (ctx) => {
       const url = `https://${n.name}-relayer.sequence.app/status`
 
       const coinGeckoId = coinGeckoIdByNetworkName[n.name]
-      const usdPrice = coinGeckoId ? pricesUsd[coinGeckoId] ?? null : null
+
+      // Testnet tokens have no real USD value.
+      const usdPrice = n.type === 'testnet' ? null : coinGeckoId ? pricesUsd[coinGeckoId] ?? null : null
 
       try {
         const res = await fetch(url, {
@@ -136,6 +138,9 @@ export const onRequest: PagesFunction = async (ctx) => {
         const minUsd = typeof usdPrice === 'number' && typeof minNative === 'number' ? minNative * usdPrice : null
         const zeroCount = enrichedSenders.reduce((acc: number, s: any) => acc + ((s.etherBalance ?? 0) <= 0 ? 1 : 0), 0)
 
+        const symbol = n.nativeCurrency?.symbol
+        const lowEth = symbol === 'ETH' && typeof minUsd === 'number' && minUsd < 50
+
         const data = {
           ...(typeof jsonRaw === 'object' && jsonRaw ? jsonRaw : {}),
           senders: enrichedSenders
@@ -159,7 +164,8 @@ export const onRequest: PagesFunction = async (ctx) => {
             totalNative,
             totalUsd,
             minNative,
-            minUsd
+            minUsd,
+            lowEth
           }
         }
       } catch (e: any) {

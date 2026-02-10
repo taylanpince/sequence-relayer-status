@@ -41,6 +41,7 @@ type Summary = {
   totalUsd: number | null
   minNative: number | null
   minUsd: number | null
+  lowEth?: boolean
 }
 
 type ApiResult = {
@@ -75,7 +76,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<'all' | 'zero'>('all')
+  const [filter, setFilter] = useState<'all' | 'zero' | 'lowEth'>('all')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const load = async () => {
@@ -112,6 +113,10 @@ export default function App() {
       results = results.filter(r => (r.summary?.zeroCount ?? 0) > 0)
     }
 
+    if (filter === 'lowEth') {
+      results = results.filter(r => !!r.summary?.lowEth)
+    }
+
     return results
   }, [data, query, filter])
 
@@ -123,6 +128,7 @@ export default function App() {
     let zeroSenders = 0
     let totalUsd = 0
     let hasUsd = false
+    let lowEthChains = 0
 
     for (const r of results) {
       if (!r.ok) {
@@ -131,8 +137,9 @@ export default function App() {
       }
       chainsUp += 1
       zeroSenders += r.summary?.zeroCount ?? 0
+      if (r.summary?.lowEth) lowEthChains += 1
 
-      if (typeof r.summary?.totalUsd === 'number') {
+      if (typeof r.summary?.totalUsd === 'number' && r.network.type !== 'testnet') {
         totalUsd += r.summary.totalUsd
         hasUsd = true
       }
@@ -142,6 +149,7 @@ export default function App() {
       chainsUp,
       chainsDown,
       zeroSenders,
+      lowEthChains,
       total: results.length,
       totalUsd: hasUsd ? totalUsd : null
     }
@@ -189,8 +197,6 @@ export default function App() {
 
         <section className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
           <FilterPill active={filter === 'all'} onClick={() => setFilter('all')} label="All networks" value={summary.total} />
-          <Stat label="Up" value={summary.chainsUp} tone="good" />
-          <Stat label="Down" value={summary.chainsDown} tone={summary.chainsDown ? 'bad' : 'neutral'} />
           <FilterPill
             active={filter === 'zero'}
             onClick={() => setFilter(filter === 'zero' ? 'all' : 'zero')}
@@ -198,6 +204,14 @@ export default function App() {
             value={summary.zeroSenders}
             tone={summary.zeroSenders ? 'bad' : 'good'}
           />
+          <FilterPill
+            active={filter === 'lowEth'}
+            onClick={() => setFilter(filter === 'lowEth' ? 'all' : 'lowEth')}
+            label="Low ETH chains (<$50 min)"
+            value={summary.lowEthChains}
+            tone={summary.lowEthChains ? 'bad' : 'good'}
+          />
+          <Stat label="Down" value={summary.chainsDown} tone={summary.chainsDown ? 'bad' : 'neutral'} />
         </section>
 
         <section className="mt-3">
@@ -216,7 +230,7 @@ export default function App() {
             />
           </div>
           <div className="text-sm text-slate-400">
-            {filter === 'zero' ? (
+            {filter !== 'all' ? (
               <button
                 className="underline decoration-white/20 hover:decoration-white/50"
                 onClick={() => setFilter('all')}
@@ -348,7 +362,9 @@ function NetworkCard({
             </div>
             <div className="text-sm text-slate-400">
               <code className="text-slate-300">{n.name}</code> · native: <span className="text-slate-200">{symbol}</span>
-              {typeof usdPrice === 'number' ? (
+              {n.type === 'testnet' ? (
+                <span className="text-slate-500"> · testnet (no USD value)</span>
+              ) : typeof usdPrice === 'number' ? (
                 <span className="text-slate-500"> · {fmtUsd(usdPrice)} / {symbol}</span>
               ) : (
                 <span className="text-slate-500"> · USD price unavailable</span>
@@ -374,10 +390,11 @@ function NetworkCard({
                 {senderCount} sender(s)
               </span>
               <span className="rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300">
-                min: {typeof minNative === 'number' ? `${fmt(minNative)} ${symbol}` : '—'} ({fmtUsd(minUsd)})
+                min: {typeof minNative === 'number' ? `${fmt(minNative)} ${symbol}` : '—'}
+                {n.type === 'testnet' ? '' : ` (${fmtUsd(minUsd)})`}
               </span>
               <span className="rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300">
-                total: {fmtUsd(totalUsd)}
+                total: {n.type === 'testnet' ? '—' : fmtUsd(totalUsd)}
               </span>
               <span
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ${zeros ? 'bg-red-500/10 ring-red-500/20 text-red-200' : 'bg-emerald-500/10 ring-emerald-500/20 text-emerald-200'}`}
@@ -418,7 +435,7 @@ function NetworkCard({
                       <td className="px-5 py-3 text-slate-400">{s.index}</td>
                       <td className="px-5 py-3 font-mono text-xs md:text-sm text-slate-200">{s.address}</td>
                       <td className={`px-5 py-3 font-semibold ${ok ? 'text-slate-100' : 'text-red-200'}`}>{fmt(s.etherBalance ?? 0)}</td>
-                      <td className="px-5 py-3 font-semibold text-slate-200">{fmtUsd(s.usdValue)}</td>
+                      <td className="px-5 py-3 font-semibold text-slate-200">{n.type === 'testnet' ? '—' : fmtUsd(s.usdValue)}</td>
                       <td className="px-5 py-3 text-slate-400">
                         <span className="inline-flex gap-2">
                           {s.enabled === false ? <Badge tone="bad">disabled</Badge> : <Badge>enabled</Badge>}
