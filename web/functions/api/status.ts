@@ -66,10 +66,12 @@ export const onRequest: PagesFunction = async (ctx) => {
   }
 
   let pricesUsd: Record<string, number> = {}
+  let pricingError: string | null = null
   try {
     pricesUsd = await fetchUsdPrices(Array.from(idsNeeded), apiKey)
-  } catch (e) {
+  } catch (e: any) {
     // Non-fatal: we still return balances, but USD fields will be null.
+    pricingError = e?.message ?? String(e)
     pricesUsd = {}
   }
 
@@ -182,6 +184,12 @@ export const onRequest: PagesFunction = async (ctx) => {
   return new Response(
     JSON.stringify({
       generatedAt: new Date().toISOString(),
+      pricing: {
+        apiKeyPresent: !!apiKey,
+        idsRequested: Array.from(idsNeeded),
+        idsPriced: Object.keys(pricesUsd),
+        error: pricingError
+      },
       count: results.length,
       results
     }),
