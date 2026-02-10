@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* App-wide base tweaks */
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0b1020;
+}
